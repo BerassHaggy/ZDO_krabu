@@ -30,6 +30,7 @@ def get_skeleton(incision):
     threshold = filters.threshold_otsu(incision)
     mask = incision < threshold
     skeleton = skimage.morphology.skeletonize(mask)
+
     return skeleton
 
 
