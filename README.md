@@ -1,2 +1,2 @@
 # ZDO_krabu
-Git repo for computer vision ZDO
+Git repository for computer vision (ZDO). 
