@@ -1,95 +1,51 @@
-import os
 import numpy as np
-import scipy
-from scipy import ndimage
-import scipy.signal
-import scipy.misc
-import skimage.data
 import skimage.io
 import skimage.feature
 import matplotlib.pyplot as plt
-from skimage import data
-from skimage import filters
-from skimage import exposure
-from skimage.feature import canny
-from scipy import ndimage
-from skimage.segmentation import active_contour
-from skimage.filters import sobel
-from pathlib import Path
-
-def preprocess_incisions(path_incisions: Path, output_path: Path):
-    filenames = os.listdir(path_incisions)
-
-    for filename in filenames:
-        incision = skimage.io.imread(os.path.join(path_incisions, filename), as_gray=True)
-        incision_skeleton = get_skeleton(incision)
-        skimage.io.imsave(os.path.join(output_path, filename), incision_skeleton)
+from thresholdOtsu import otsu
+from skelet import skeletonize
+from dilatation import dilatation
+from edgesSegmenation import edges_detection
+from incisionPolyline import polyline_detection
+import os
 
 
-def get_skeleton(incision):
-    threshold = filters.threshold_otsu(incision)
-    mask = incision < threshold
-    skeleton = skimage.morphology.skeletonize(mask)
+working = "SA_20220707-193326_incision_crop_0.jpg"  # the working image
+test = "SA_20230223-161818_incision_crop_0.jpg"  #  SA_20211012-164802_incision_crop_0.jpg
+test2 = "SA_20211012-164802_incision_crop_0.jpg"
+test3 = "SA_20230223-124020_incision_crop_0.jpg"
+# get all the images
+path = "project/images/default"
+images_list = os.listdir(path)
 
-    return skeleton
+for image in images_list:
+    # load the incision image
+    # image = test3
+    incision = skimage.io.imread("project/images/default/" + image, as_gray=True)
 
+    # thresholding - Otsu
+    mask = otsu(incision)
 
-# incision = skimage.io.imread("project/images/default/SA_20230223-082339_incision_crop_2.jpg", as_gray=True)
-# # print the image
-# plt.imshow(incision, cmap="gray")
-# #plt.show()
-#
-# # thresholding - Otsu
-# threshold = filters.threshold_otsu(incision)
-# mask = incision < threshold
-# plt.imshow(mask, cmap="gray")
-#
-#
-# # edges based segmentation
-# edges = canny(incision)
-# plt.imshow(edges, cmap="gray")
-# #plt.show()
-# incision_edges = ndimage.binary_fill_holes(edges)
-# plt.imshow(incision_edges, cmap="gray")
-# #plt.show()
-#
-# # erosion
-# kernel_big = skimage.morphology.diamond(1)
-# kernel = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]])
-# new = skimage.morphology.binary_erosion(edges, kernel)
-# new2 = skimage.morphology.binary_opening(edges, kernel_big)
-# #plt.imshow(new2)
-# #plt.show()
-#
-# # skelet
-# skeleton = skimage.morphology.skeletonize(mask)
-#
-# # dilatation
-# kernel2 = np.array([[1, 0], [0, 0]])
-# new3 = skimage.morphology.binary_dilation(skeleton, kernel_big)
+    # skelet
+    skeleton = skeletonize(mask)
 
-"""
-# sobel
-new4 = elevation_map = sobel(incision)
-markers = np.zeros_like(new4)
-markers[incision < 100] = 1
-markers[incision > 110] = 2
-segmentation = skimage.segmentation.watershed(new4, markers)
-"""
+    # dilatation
+    kernel = skimage.morphology.diamond(1)
+    bigger_Incision = dilatation(skeleton, kernel)
 
-# plt.figure()
-# plt.subplot(411)
-# plt.imshow(skeleton, cmap="gray")
-# plt.subplot(412)
-# plt.imshow(incision, cmap="gray")
-# plt.subplot(413)
-# plt.imshow(new3, cmap="gray")
-# plt.show()
-
-
-if __name__ == "__main__":
-    path_incisions = Path("./images")
-    skeletons_output_path = Path("./skeletons")
-
-    preprocess_incisions(path_incisions, skeletons_output_path)
-
+    plt.figure()
+    sub1 = plt.subplot(311)
+    plt.imshow(incision, cmap="gray")
+    sub1.title.set_text("Incision")
+    sub2 = plt.subplot(312)
+    plt.imshow(mask, cmap="gray")
+    sub2.title.set_text("Otsu")
+    sub3 = plt.subplot(313)
+    plt.imshow(skeleton, cmap="gray")
+    sub3.title.set_text("Skelet")
+    plt.show()
+    try:
+        # incision polyline detection
+        polyline = polyline_detection(np.asarray(skeleton), incision, image)
+    except Exception as e:
+        print(str(e))
