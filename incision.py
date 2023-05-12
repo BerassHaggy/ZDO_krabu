@@ -45,7 +45,7 @@ def detect_incision(image, false_detected_incision):
     height = dimensions[0]
     width = dimensions[1]
 
-    lines = cv2.HoughLinesP(threshold, rho=1, theta=np.pi / 180, threshold=170, minLineLength=(width * 0.75),
+    lines = cv2.HoughLinesP(threshold, rho=1, theta=np.pi / 180, threshold=150, minLineLength=(width * 0.75),  # 170 - 46 false
                             maxLineGap=(width * 0.1))
     incisions = []
     if lines is not None:
@@ -57,7 +57,31 @@ def detect_incision(image, false_detected_incision):
             if np.abs(angle) < 30:  # angle relative to the horizontal axis
                 incisions.append(line)
     else:
-        false_detected_incision += 1
+        scale_percent = 200
+        # Calculate the new dimensions
+        width = int(upscaled_img.shape[1] * scale_percent / 100)
+        height = int(upscaled_img.shape[0] * scale_percent / 100)
+        dim = (width, height)
+        upscaled_img = cv2.resize(upscaled_img, dim, interpolation=cv2.INTER_CUBIC)
+        out = cv2.resize(img, dim, interpolation=cv2.INTER_CUBIC)
+        threshold = cv2.adaptiveThreshold(upscaled_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 17,
+                                          2)
+        lines = cv2.HoughLinesP(threshold, rho=1, theta=np.pi / 180, threshold=150, minLineLength=(width * 0.75),
+                                # 170 - 46 false
+                                maxLineGap=(width * 0.1))
+        if lines is not None:
+
+            # Identify incisions and stitches based on their angle
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
+                if np.abs(angle) < 30:  # angle relative to the horizontal axis
+                    incisions.append(line)
+        else:
+            false_detected_incision += 1
+            #plt.imshow(upscaled_img, cmap="gray")
+            #plt.show()
+            a = 0
 
     return incisions, false_detected_incision, out
 
