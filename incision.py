@@ -17,8 +17,29 @@ def detect_incision(image, false_detected_incision):
     img = cv2.imread("project/images/default/" + image)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    # Apply Canny edge detection
-    threshold = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 17, 2)
+    # Set the scale factor
+    scale_percent = 200  # 200% upscaling
+
+    # modify image only if the width is smaller than given threshold
+    threshold_width = 200
+    if gray.shape[1] < threshold_width:
+        # Calculate the new dimensions
+        width = int(gray.shape[1] * scale_percent / 100)
+        height = int(gray.shape[0] * scale_percent / 100)
+        dim = (width, height)
+        upscaled_img = cv2.resize(gray, dim, interpolation=cv2.INTER_CUBIC)
+        out = cv2.resize(img, dim, interpolation=cv2.INTER_CUBIC)
+    else:
+        upscaled_img = gray
+        out = img
+
+    # Thresholding (adaptive)
+    threshold = cv2.adaptiveThreshold(upscaled_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 17, 2)
+
+    plt.subplot(211)
+    plt.imshow(gray, cmap="gray")
+    plt.subplot(212)
+    plt.imshow(upscaled_img, cmap="gray")
 
     dimensions = img.shape
     height = dimensions[0]
@@ -38,7 +59,7 @@ def detect_incision(image, false_detected_incision):
     else:
         false_detected_incision += 1
 
-    return incisions, false_detected_incision, img
+    return incisions, false_detected_incision, out
 
 
 def detect_stitches(image, false_detected_stitches):
@@ -66,7 +87,8 @@ def detect_stitches(image, false_detected_stitches):
             x1, y1, x2, y2 = line[0]
             angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
             if np.abs(angle) > 45:  # angle relative to the horizontal axis (originally 60)
-                stitches.append(line)
+                # stitches.append(line)
+                a = 0
     else:
         false_detected_stitches += 1
 
