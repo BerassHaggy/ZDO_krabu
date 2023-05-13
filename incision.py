@@ -83,7 +83,7 @@ def detect_incision(image, false_detected_incision):
             #plt.show()
             a = 0
 
-    return incisions, false_detected_incision, out
+    return incisions, false_detected_incision, out, img
 
 
 def detect_stitches(image, false_detected_stitches):
@@ -135,15 +135,28 @@ def detect_stitches(image, false_detected_stitches):
     return stitches, false_detected_stitches, out
 
 
-def draw_detections(incisions, stitches, img):
+def draw_detections(incisions, stitches, img_original, img_incision, img_stitch):
     # Draw the detected lines on the original image
-    img_with_lines = np.copy(img)
+    img_with_lines = np.copy(img_original)
     for line in incisions:
-        x1, y1, x2, y2 = line[0]
-        cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        # need to compute the ratio between original and incision image
+        if img_original.shape == img_incision.shape:
+            x1, y1, x2, y2 = line[0]
+            cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 255, 0), 1)
+        else:
+            ratio = int(img_incision.shape[0] / img_original.shape[0])
+            x1, y1, x2, y2 = (line[0] / ratio).astype(np.int32)
+            cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 255, 0), 1)
+
     for line in stitches:
-        x1, y1, x2, y2 = line[0]
-        cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 0, 255), 2)
+        # need to compute the ratio between original and stitch image
+        if img_original.shape == img_stitch.shape:
+            x1, y1, x2, y2 = line[0]
+            cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 0, 255), 1)
+        else:
+            ratio = int(img_stitch.shape[0] / img_original.shape[0])
+            x1, y1, x2, y2 = (line[0] / ratio).astype(np.int32)
+            cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 0, 255), 1)
     # Convert the image to a displayable data type
     img_with_lines_display = cv2.convertScaleAbs(img_with_lines)
 
@@ -164,10 +177,10 @@ if __name__ == "__main__":
     false_detected_stitches = 0
 
     for image in images_list:
-        incisions, false_incision, img = detect_incision(image, false_detected_incision)
-        stitches, false_stitches, img = detect_stitches(image, false_detected_stitches)
+        incisions, false_incision, img_incision, img_original = detect_incision(image, false_detected_incision)
+        stitches, false_stitches, img_stitch = detect_stitches(image, false_detected_stitches)
         false_detected_incision = false_incision
         false_detected_stitches = false_stitches
-        draw_detections(incisions, stitches, img)
+        draw_detections(incisions, stitches, img_original, img_incision, img_stitch)
     print("Incision false detected: ", false_incision)
     print("Stitches false detected: ", false_stitches)
