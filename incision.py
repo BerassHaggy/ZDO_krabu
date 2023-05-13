@@ -66,7 +66,7 @@ def detect_incision(image, false_detected_incision):
         out = cv2.resize(img, dim, interpolation=cv2.INTER_CUBIC)
         threshold = cv2.adaptiveThreshold(upscaled_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 17,
                                           2)
-        lines = cv2.HoughLinesP(threshold, rho=1, theta=np.pi / 180, threshold=150, minLineLength=(width * 0.75),
+        lines = cv2.HoughLinesP(threshold, rho=1, theta=np.pi / 180, threshold=170, minLineLength=(width * 0.75),
                                 # 170 - 46 false
                                 maxLineGap=(width * 0.1))
         if lines is not None:
@@ -87,36 +87,52 @@ def detect_incision(image, false_detected_incision):
 
 
 def detect_stitches(image, false_detected_stitches):
-    false_detected = 0
-    incision = skimage.io.imread("project/images/default/" + image, as_gray=True)
 
     img = cv2.imread("project/images/default/" + image)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
+    kernel_size = 17
+    gray= cv2.GaussianBlur(gray, (kernel_size, kernel_size), 0)
+
+    scale_percent = 200
+    width = int(gray.shape[1] * scale_percent / 100)
+    height = int(gray.shape[0] * scale_percent / 100)
+    dim = (width, height)
+    gray = cv2.resize(gray, dim, interpolation=cv2.INTER_CUBIC)
+    out = cv2.resize(img, dim, interpolation=cv2.INTER_CUBIC)
+
+
+    # Apply adaptive thresholding
+    thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 17, 2)
+
+    # Determine the mean value of the binary image
+    mean_value = np.mean(thresh)
+
+    # Set Canny parameters based on the mean value
+    low_threshold = int(mean_value * 0.5)
+    high_threshold = int(mean_value * 1)
+
     # Apply Canny edge detection
-    threshold = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 17, 2)
+    edges = cv2.Canny(thresh, low_threshold, high_threshold)
 
-    dimensions = img.shape
-    height = dimensions[0]
-    width = dimensions[1]
+    dims = edges.shape
 
-    lines = cv2.HoughLinesP(threshold, rho=1, theta=np.pi / 360, threshold=20, minLineLength=(height * 0.001),
-                            maxLineGap=(height * 0.6))
+    plt.subplot(211)
+    plt.imshow(thresh, cmap="gray")
+    plt.subplot(212)
+    plt.imshow(edges, cmap="gray")
+    # Perform Hough Transform to detect lines
+    lines = cv2.HoughLinesP(edges, rho=0.5, theta=np.pi / 180, threshold=10, minLineLength=dims[0]*0.1, maxLineGap=20)
 
+    # Identify stitches based on their angle
     stitches = []
-    if lines is not None:
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
+        if np.abs(angle) > 30:
+            stitches.append(line)
 
-        # Identify incisions and stitches based on their angle
-        for line in lines:
-            x1, y1, x2, y2 = line[0]
-            angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
-            if np.abs(angle) > 45:  # angle relative to the horizontal axis (originally 60)
-                # stitches.append(line)
-                a = 0
-    else:
-        false_detected_stitches += 1
-
-    return stitches, false_detected_stitches
+    return stitches, false_detected_stitches, out
 
 
 def draw_detections(incisions, stitches, img):
@@ -149,7 +165,7 @@ if __name__ == "__main__":
 
     for image in images_list:
         incisions, false_incision, img = detect_incision(image, false_detected_incision)
-        stitches, false_stitches = detect_stitches(image, false_detected_stitches)
+        stitches, false_stitches, img = detect_stitches(image, false_detected_stitches)
         false_detected_incision = false_incision
         false_detected_stitches = false_stitches
         draw_detections(incisions, stitches, img)
