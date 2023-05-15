@@ -170,10 +170,14 @@ def keypoints_postprocessing(keypoints, img, keypoints_type):
     if keypoints_type == "incision":
         threshold_band = img.shape[1]*0.05
         far_keypoints = list()
-        if len(keypoints) > 2:
-            for i in range(0, len(keypoints)-1):
-                eukleid_dist = 0
-
+        if len(keypoints) > 1:
+            for line_part in [0, 2]:  # starts then ends
+                for i in range(0, len(keypoints)-1):  # getting start/end points (x,y)
+                    current_points = keypoints[i][0]  # x1,y1,x2,y2
+                    next_points = keypoints[i+1][0]
+                    curr_part = np.array([current_points[line_part], current_points[line_part+1]])
+                    next_part = np.array([next_points[line_part], next_points[line_part+1]])
+                    distance = np.linalg.norm(curr_part - next_part)
         else:
             return keypoints  # returning the (x1,y1) (x2,y2)
     elif keypoints_type == "stitch":
@@ -198,7 +202,7 @@ if __name__ == "__main__":
         false_detected_stitches = false_stitches
         incisions_out = image_rescale(img_original, img_incision, incisions)
         stitches_out = image_rescale(img_original, img_stitch, stitches)
-       # incisions = keypoints_postprocessing(incisions, img_incision, "incision")
+        incisions = keypoints_postprocessing(incisions, img_incision, "incision")
         draw_detections(incisions_out, stitches_out, img_original, img_incision, img_stitch)
     print("Incision false detected: ", false_incision)
     print("Stitches false detected: ", false_stitches)
