@@ -165,9 +165,12 @@ def draw_detections(incisions, stitches, img_original, img_incision, img_stitch)
     plt.imshow(cv2.cvtColor(img_with_lines_display, cv2.COLOR_BGR2RGB))
     plt.show()
 
-def average_coordinates(start_points, end_points):
-    keypoints = list()
-    start_x = np.mean(start_points[0,:])
+def average_coordinates(start_points, end_points, keypoints):
+    keypoints_copy = np.copy(keypoints)
+    start_x = np.mean(start_points[:, 0])
+    start_y = np.mean(start_points[:, 1])
+    end_x = np.mean(end_points[:, 0])
+    end_y = np.mean(end_points[:, 1])
     return keypoints
 
 
@@ -191,9 +194,9 @@ def keypoints_postprocessing(keypoints, img, keypoints_type):
                             start_points.append(next_part)
                         else:
                             end_points.append(curr_part)
-                            start_points.append(next_part)
+                            end_points.append(next_part)
             # making the average of the detected coordinates (x,y)
-            keypoints_out = average_coordinates(np.array(start_points), np.array(end_points))
+            keypoints_out = average_coordinates(np.array(start_points), np.array(end_points), keypoints)
             return keypoints_out
         else:
             return keypoints  # returning the (x1,y1) (x2,y2)
