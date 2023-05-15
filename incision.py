@@ -135,34 +135,49 @@ def detect_stitches(image, false_detected_stitches):
     return stitches, false_detected_stitches, out
 
 
+def image_rescale(img_original, img, keypoints):
+    # need to compute the ratio between original and incision image
+    if img_original.shape == img.shape:
+        return keypoints
+    else:
+        ratio = int(img.shape[0] / img_original.shape[0])  # ratio between two images
+        for i in range(0, len(keypoints)):
+            keypoints[i][0] = (keypoints[i][0] / ratio).astype(np.int32)
+        return keypoints
+
+
 def draw_detections(incisions, stitches, img_original, img_incision, img_stitch):
     # Draw the detected lines on the original image
     img_with_lines = np.copy(img_original)
     for line in incisions:
         # need to compute the ratio between original and incision image
-        if img_original.shape == img_incision.shape:
-            x1, y1, x2, y2 = line[0]
-            cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 255, 0), 1)
-        else:
-            ratio = int(img_incision.shape[0] / img_original.shape[0])
-            x1, y1, x2, y2 = (line[0] / ratio).astype(np.int32)
-            cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 255, 0), 1)
+        x1, y1, x2, y2 = line[0]
+        cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 255, 0), 1)
 
     for line in stitches:
-        # need to compute the ratio between original and stitch image
-        if img_original.shape == img_stitch.shape:
-            x1, y1, x2, y2 = line[0]
-            cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 0, 255), 1)
-        else:
-            ratio = int(img_stitch.shape[0] / img_original.shape[0])
-            x1, y1, x2, y2 = (line[0] / ratio).astype(np.int32)
-            cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 0, 255), 1)
-    # Convert the image to a displayable data type
+        x1, y1, x2, y2 = line[0]
+        cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 0, 255), 1)
+
+    # convert the image to a displayable data type
     img_with_lines_display = cv2.convertScaleAbs(img_with_lines)
 
-    # Display the results
+    # display the results
     plt.imshow(cv2.cvtColor(img_with_lines_display, cv2.COLOR_BGR2RGB))
     plt.show()
+
+
+def keypoints_postprocessing(keypoints, img, keypoints_type):
+    if keypoints_type == "incision":
+        threshold_band = img.shape[1]*0.05
+        far_keypoints = list()
+        if len(keypoints) > 2:
+            for i in range(0, len(keypoints)-1):
+                eukleid_dist = 0
+
+        else:
+            return keypoints  # returning the (x1,y1) (x2,y2)
+    elif keypoints_type == "stitch":
+        a = 0
 
 
 if __name__ == "__main__":
@@ -181,6 +196,9 @@ if __name__ == "__main__":
         stitches, false_stitches, img_stitch = detect_stitches(image, false_detected_stitches)
         false_detected_incision = false_incision
         false_detected_stitches = false_stitches
-        draw_detections(incisions, stitches, img_original, img_incision, img_stitch)
+        incisions_out = image_rescale(img_original, img_incision, incisions)
+        stitches_out = image_rescale(img_original, img_stitch, stitches)
+       # incisions = keypoints_postprocessing(incisions, img_incision, "incision")
+        draw_detections(incisions_out, stitches_out, img_original, img_incision, img_stitch)
     print("Incision false detected: ", false_incision)
     print("Stitches false detected: ", false_stitches)
