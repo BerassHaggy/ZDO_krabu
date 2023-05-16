@@ -9,6 +9,8 @@ from edgesSegmenation import edges_detection
 from incisionPolyline import polyline_detection
 import os
 import cv2
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
 
 
 def detect_incision(image, false_detected_incision):
@@ -183,26 +185,57 @@ def average_coordinates(start_points, end_points):
 def keypoints_postprocessing(keypoints, img, keypoints_type):
     if keypoints_type == "incision":
         threshold_band = img.shape[0]*0.2
+        clusters = {}
         start_points = list()  # for start points
         end_points = list()  # for end points
         far_keypoints = list()
         if len(keypoints) > 1:
             for line_part in [0, 2]:  # starts then ends
-                for i in range(0, len(keypoints)-1):  # getting start/end points (x,y)
+                for i in range(0, len(keypoints)):  # getting start/end points (x,y)
                     current_points = keypoints[i][0]  # x1,y1,x2,y2
-                    next_points = keypoints[i+1][0]
                     curr_part = np.array([current_points[line_part], current_points[line_part+1]])
-                    next_part = np.array([next_points[line_part], next_points[line_part+1]])
-                    distance = np.linalg.norm(curr_part - next_part)
-                    if distance < threshold_band:
-                        if line_part == 0:
-                            start_points.append(curr_part)
-                            start_points.append(next_part)
-                        else:
-                            end_points.append(curr_part)
-                            end_points.append(next_part)
+
+                    # store the corresponding coordinates
+                    if line_part == 0:
+                        start_points.append(curr_part)
+                    else:
+                        end_points.append(curr_part)
+
+                # identify the classes with corresponding coordinated
+                if line_part == 0 and len(start_points) > 3:
+                    k_values = range(2, 4)  # Range of k values to try
+                    silhouette_scores = []  # List to store silhouette scores
+
+                    # Perform K-means clustering for different values of k
+                    for k in k_values:
+                        kmeans = KMeans(n_clusters=k)
+                        kmeans.fit(start_points)
+                        labels = kmeans.labels_
+                        score = silhouette_score(start_points, labels)
+                        silhouette_scores.append(score)
+
+                    # Find the optimal number of clusters
+                    best_k = k_values[np.argmax(silhouette_scores)]
+
+                    # Perform K-means clustering with the best k
+                    kmeans = KMeans(n_clusters=best_k)
+                    kmeans.fit(start_points)
+                    labels = kmeans.labels_
+
+                    # Get the classes and corresponding values
+                    for i, label in enumerate(labels):
+                        if label not in clusters:
+                            clusters[label] = []
+                        clusters[label].append([start_points[i]])
+
+                    start_points = clusters
+
+                # only one class expected
+                elif line_part == 0 and len(start_points) <= 0:
+                    continue
+
             # making the average of the detected coordinates (x,y)
-            keypoints_out = average_coordinates(np.array(start_points), np.array(end_points))
+            keypoints_out = average_coordinates(start_points, end_points)
             return keypoints_out
         else:
             return keypoints  # returning the (x1,y1) (x2,y2)
