@@ -132,11 +132,14 @@ def detect_stitches(image, false_detected_stitches):
 
     # Identify stitches based on their angle
     stitches = []
-    for line in lines:
-        x1, y1, x2, y2 = line[0]
-        angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
-        if np.abs(angle) > 30:
-            stitches.append(line)
+    if lines is not None:
+        for line in lines:
+            x1, y1, x2, y2 = line[0]
+            angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
+            if np.abs(angle) > 30:
+                stitches.append(line)
+    else:
+        false_detected_stitches += 1
 
     return stitches, false_detected_stitches, out
 
@@ -152,7 +155,7 @@ def image_rescale(img_original, img, keypoints):
         return keypoints
 
 
-def draw_detections(incisions, stitches, img_original, img_incision, img_stitch):
+def draw_detections(incisions, stitches, img_original):
     # Draw the detected lines on the original image
     img_with_lines = np.copy(img_original)
     for line in incisions:
@@ -187,12 +190,15 @@ def average_coordinates(start_points, end_points):
     return keypoints_out
 
 
-def keypoints_postprocessing(keypoints, img, keypoints_type):
+def keypoints_postprocessing(keypoints, img, keypoints_type, image):
     if keypoints_type == "incision":
-        threshold_band = img.shape[0]*0.2
-        clusters = {}
+        threshold_band = img.shape[0]*0.05
         start_points = list()  # for start points
         end_points = list()  # for end points
+
+        # for the final output
+        start_points_out = list()
+        end_points_out = list()
         far_keypoints = list()
         if len(keypoints) > 1:
             for line_part in [0, 2]:  # starts then ends
@@ -206,41 +212,38 @@ def keypoints_postprocessing(keypoints, img, keypoints_type):
                     else:
                         end_points.append(curr_part)
 
-                # identify the classes with corresponding coordinated
-                if line_part == 0 and len(start_points) > 3:
-                    k_values = range(2, 4)  # Range of k values to try
-                    silhouette_scores = []  # List to store silhouette scores
-
-                    # Perform K-means clustering for different values of k
-                    for k in k_values:
-                        kmeans = KMeans(n_clusters=k)
-                        kmeans.fit(start_points)
-                        labels = kmeans.labels_
-                        score = silhouette_score(start_points, labels)
-                        silhouette_scores.append(score)
-
-                    # Find the optimal number of clusters
-                    best_k = k_values[np.argmax(silhouette_scores)]
-
-                    # Perform K-means clustering with the best k
-                    kmeans = KMeans(n_clusters=best_k)
-                    kmeans.fit(start_points)
-                    labels = kmeans.labels_
-
-                    # Get the classes and corresponding values
-                    for i, label in enumerate(labels):
-                        if label not in clusters:
-                            clusters[label] = []
-                        clusters[label].append([start_points[i]])
-
-                    start_points = clusters
-
-                # only one class expected
-                elif line_part == 0 and len(start_points) <= 0:
-                    continue
-
             # making the average of the detected coordinates (x,y)
-            keypoints_out = average_coordinates(start_points, end_points)
+            keypoints_out = average_coordinates(np.array(start_points), np.array(end_points))
+
+            # computing the reference points
+            x_start = keypoints_out[0][0][0]
+            y_start = keypoints_out[0][0][1]
+            x_end = keypoints_out[0][0][2]
+            y_end = keypoints_out[0][0][3]
+
+            #draw_detections(keypoints, [], img)
+
+            for line_part in [0, 2]:  # starts then ends
+                for i in range(0, len(keypoints)):  # getting start/end points (x,y)
+                    current_points = keypoints[i][0]  # x1,y1,x2,y2
+                    curr_part = np.array([current_points[line_part], current_points[line_part+1]])  # x1,y1 or x2,y2
+                    y_current = curr_part[1]  # y real
+
+                    if line_part == 0:  # detecting the start points
+                        if np.abs(y_start - y_current) <= threshold_band:
+                            start_points_out.append(curr_part)
+                        else:
+                            start_points_out.append(curr_part)
+                    else:
+                        if np.abs(y_end - y_current) <= threshold_band:
+                            end_points_out.append(curr_part)
+                        else:
+                            end_points_out.append(curr_part)
+
+            # compute the final coordinates
+            keypoints_out = average_coordinates(np.array(start_points_out), np.array(end_points_out))
+            if len(keypoints_out) == 0:
+                print(image)
             return keypoints_out
         else:
             return keypoints  # returning the (x1,y1) (x2,y2)
@@ -284,7 +287,7 @@ if __name__ == "__main__":
     working = "SA_20220707-193326_incision_crop_0.jpg"  # the working image
     test = "SA_20230223-161818_incision_crop_0.jpg"  #  SA_20211012-164802_incision_crop_0.jpg
     test2 = "SA_20211012-164802_incision_crop_0.jpg"
-    test3 = "SA_20230223-124020_incision_crop_0.jpg"
+    test3 = "SA_20221014-114727_incision_crop_0.jpg"
     # get all the images
     path = "project/images/default"
     images_list = os.listdir(path)
@@ -298,7 +301,7 @@ if __name__ == "__main__":
         false_detected_stitches = false_stitches
         incisions_out = image_rescale(img_original, img_incision, incisions)
         stitches_out = image_rescale(img_original, img_stitch, stitches)
-        incisions = keypoints_postprocessing(incisions, img_incision, "incision")
-        draw_detections(incisions, stitches_out, img_original, img_incision, img_stitch)
+        incisions = keypoints_postprocessing(incisions, img_incision, "incision", image)
+        draw_detections(incisions, stitches_out, img_original)
     print("Incision false detected: ", false_incision)
     print("Stitches false detected: ", false_stitches)
