@@ -7,6 +7,33 @@ import math
 import numpy as np
 
 
+def save_output_data(images_list, path: Path):
+    output_name = "res"
+
+    idx = 0
+    for image in images_list:
+        filename = output_name + str(idx).zfill(3)
+        skimage.io.imsave(os.path.join(path, filename), image)
+        idx += 1
+
+
+def line_intersection(p1_start, p1_end, p2_start, p2_end):
+    xdiff = (p1_start[0] - p1_end[0], p2_start[0] - p2_end[0])
+    ydiff = (p1_start[1] - p1_end[1], p2_start[1] - p2_end[1])
+
+    def det(a, b):
+        return a[0] * b[1] - a[1] * b[0]
+
+    div = det(xdiff, ydiff)
+    if div == 0:
+        return None  # Lines are parallel or coincident
+
+    d = (det(*p1_start, *p1_end), det(*p2_start, *p2_end))
+    x = det(d, xdiff) / div
+    y = det(d, ydiff) / div
+
+    return x, y
+
 def count_angles(stitches_list: list, incision):
     res_angles = list()
 
