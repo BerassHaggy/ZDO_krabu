@@ -12,8 +12,11 @@ As the input data we were using annotated medical pictures. The pictures were
 annotated in CVAT. We had to deal with the poor quality of the pictures. 
 
 ![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/src/graphics/incision_1.jpg)
+
 ![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/src/graphics/incision_2.jpg)
+
 ![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/src/graphics/incision_3.jpg)
+
 ![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/src/graphics/incision_4.jpg)
 
 
