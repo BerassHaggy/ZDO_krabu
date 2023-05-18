@@ -9,7 +9,7 @@ stitching based mainly on the angle between the incision and the stitch.
 
 ## Input data
 As the input data we were using annotated medical pictures. The pictures were
-annotated in CVAT. We had to deal with the poor quality of the pictures (as you can see below).
+annotated in [CVAT](https://www.cvat.ai/). We had to deal with the poor quality of the pictures (as you can see below).
 The annotations were saved in .json file.
 
 ![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/src/graphics/incision_1.jpg)
@@ -21,6 +21,7 @@ The annotations were saved in .json file.
 ![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/src/graphics/incision_4.jpg)
 
 ## Output data
+
 
 
 
