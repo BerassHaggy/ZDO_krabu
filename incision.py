@@ -125,8 +125,6 @@ def detect_stitches(image, false_detected_stitches):
     plt.subplot(313)
     plt.imshow(edges, cmap="gray")
     """
-    plt.imshow(out)
-    plt.show()
 
     dims = edges.shape
 
@@ -177,7 +175,7 @@ def draw_detections(incisions, stitches, img_original, image):
             # need to compute the ratio between original and incision image
             x1, y1, x2, y2 = line[0]
             cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 255, 0), 1)
-    if stitches is not None:
+    if stitches is not None and len(stitches[0]) > 0:
         for line in stitches:
             x1, y1, x2, y2 = line[0][0]
             cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 0, 255), 1)
@@ -187,9 +185,9 @@ def draw_detections(incisions, stitches, img_original, image):
 
     # display the results
     print(image)
-    plt.figure()
-    plt.imshow(cv2.cvtColor(img_with_lines_display, cv2.COLOR_BGR2RGB))
-    plt.title("Title: " + image)
+    #plt.figure()
+    #plt.imshow(cv2.cvtColor(img_with_lines_display, cv2.COLOR_BGR2RGB))
+    #plt.title("Title: " + image)
     plt.show()
 
 
@@ -210,6 +208,7 @@ def average_coordinates(start_points, end_points):
 
 
 def keypoints_postprocessing(keypoints, img, keypoints_type, image):
+    print(image)
     if keypoints_type == "incision":
         threshold_band = img.shape[0]*0.05
         start_points = list()  # for start points
@@ -267,7 +266,7 @@ def keypoints_postprocessing(keypoints, img, keypoints_type, image):
         else:
             return keypoints  # returning the (x1,y1) (x2,y2)
 
-    elif keypoints_type == "stitch" and len(keypoints) > 0:
+    elif keypoints_type == "stitch" and len(keypoints) > 2:
         k_means_in = list()
         for i in range(len(keypoints)):
             points = keypoints[i][0]
@@ -319,6 +318,10 @@ def keypoints_postprocessing(keypoints, img, keypoints_type, image):
 
         return final_keypoints
 
+    # only two or one line detected
+    else:
+        return [keypoints]
+
 def angle_between_lines(p1_start, p1_end, p2_start, p2_end):
     '''
     Could be used for counting angles between incision and stitches
@@ -363,6 +366,7 @@ if __name__ == "__main__":
     false_detected_stitches = 0
 
     for image in images_list:
+        #image = "SA_20221124-090552_incision_crop_0.jpg"
         incisions, false_incision, img_incision, img_original = detect_incision(image, false_detected_incision)
         stitches, false_stitches, img_stitch = detect_stitches(image, false_detected_stitches)
         false_detected_incision = false_incision
