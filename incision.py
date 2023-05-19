@@ -143,12 +143,12 @@ def detect_stitches(image, false_detected_stitches):
         false_detected_stitches += 1
 
     # if stitches are empty, try to adjust the angle
-    if len(stitches) == 0:
+    if len(stitches) < 2:
         if lines is not None:
             for line in lines:
                 x1, y1, x2, y2 = line[0]
                 angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
-                if np.abs(angle) > 30:
+                if np.abs(angle) > 20:
                     stitches.append(line)
         else:
             false_detected_stitches += 1
@@ -185,11 +185,10 @@ def draw_detections(incisions, stitches, img_original, image):
 
     # display the results
     print(image)
-    #plt.figure()
-    #plt.imshow(cv2.cvtColor(img_with_lines_display, cv2.COLOR_BGR2RGB))
-    #plt.title("Title: " + image)
+    plt.figure()
+    plt.imshow(cv2.cvtColor(img_with_lines_display, cv2.COLOR_BGR2RGB))
+    plt.title("Title: " + image)
     plt.show()
-
 
 
 def average_coordinates(start_points, end_points):
@@ -322,6 +321,50 @@ def keypoints_postprocessing(keypoints, img, keypoints_type, image):
     else:
         return [keypoints]
 
+
+def coordinates_control(keypoints, img, image):
+    threshold = img.shape[1]*0.05
+    keypoints_final = list()
+    banned_lines = list()
+    for index1, line1 in enumerate(keypoints):
+        for index2 in range(index1+1, len(keypoints)):
+            line2 = keypoints[index2]
+            line1_midpoint = [(line1[0][0][0] + line1[0][0][2]) / 2, (line1[0][0][1] + line1[0][0][3]) / 2]
+            line2_midpoint = [(line2[0][0][0] + line2[0][0][2]) / 2, (line2[0][0][1] + line2[0][0][3]) / 2]
+            distance = calculate_distance(line1_midpoint[0], line1_midpoint[1], line2_midpoint[0], line2_midpoint[1])
+            if distance <= threshold:
+                start_points = [[line1[0][0][0], line1[0][0][1]], [line2[0][0][2], line2[0][0][3]]]
+                end_points = [[line1[0][0][2], line1[0][0][3]], [line2[0][0][0], line2[0][0][1]]]
+                one_line = average_coordinates(np.array(start_points), np.array(end_points))
+                keypoints_final.append(one_line)
+                banned_lines.append(line1)
+                banned_lines.append(line2)
+
+    for line1 in keypoints:
+        if line_in_lines(line1, banned_lines):
+            continue
+        else:
+            keypoints_final.append(line1)
+    return keypoints_final
+
+
+def calculate_distance(x1, y1, x2, y2):
+    return np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+
+
+def line_in_lines(line, keypoints):
+    for points in keypoints:
+        if len(points) > 1:
+            for point in points:
+                if point == line:
+                    return True
+                    break
+        elif np.array_equal(points[0][0], line[0][0]):
+            return True
+            break
+    return False
+
+
 def angle_between_lines(p1_start, p1_end, p2_start, p2_end):
     '''
     Could be used for counting angles between incision and stitches
@@ -366,15 +409,16 @@ if __name__ == "__main__":
     false_detected_stitches = 0
 
     for image in images_list:
-        #image = "SA_20221124-090552_incision_crop_0.jpg"
+        #image = "SA_20221201-083205_incision_crop_0.jpg"
         incisions, false_incision, img_incision, img_original = detect_incision(image, false_detected_incision)
         stitches, false_stitches, img_stitch = detect_stitches(image, false_detected_stitches)
         false_detected_incision = false_incision
         false_detected_stitches = false_stitches
         incisions_out = image_rescale(img_original, img_incision, incisions)
         stitches_out = image_rescale(img_original, img_stitch, stitches)
-        incisions = keypoints_postprocessing(incisions_out, img_incision, "incision", image)
-        stitches = keypoints_postprocessing(stitches_out, img_stitch, "stitch", image)
+        incisions = keypoints_postprocessing(incisions_out, img_original, "incision", image)
+        stitches = keypoints_postprocessing(stitches_out, img_original, "stitch", image)
+        stitches = coordinates_control(stitches, img_original, image)
         draw_detections(incisions, stitches, img_original, image)
     print("Incision false detected: ", false_incision)
     print("Stitches false detected: ", false_stitches)
