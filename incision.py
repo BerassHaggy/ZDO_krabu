@@ -42,11 +42,6 @@ def detect_incision(image, false_detected_incision):
     # Thresholding (adaptive)
     threshold = cv2.adaptiveThreshold(upscaled_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 17, 2)
 
-    plt.subplot(211)
-    plt.imshow(gray, cmap="gray")
-    plt.subplot(212)
-    plt.imshow(upscaled_img, cmap="gray")
-
     dimensions = img.shape
     height = dimensions[0]
     width = dimensions[1]
@@ -98,7 +93,7 @@ def detect_stitches(image, false_detected_stitches):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     kernel_size = 17
-    gray= cv2.GaussianBlur(gray, (kernel_size, kernel_size), 0)
+    gray = cv2.GaussianBlur(gray, (kernel_size, kernel_size), 0)
 
     scale_percent = 200
     width = int(gray.shape[1] * scale_percent / 100)
@@ -107,9 +102,10 @@ def detect_stitches(image, false_detected_stitches):
     gray = cv2.resize(gray, dim, interpolation=cv2.INTER_CUBIC)
     out = cv2.resize(img, dim, interpolation=cv2.INTER_CUBIC)
 
-
     # Apply adaptive thresholding
     thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 17, 2)
+
+    kernel_big = skimage.morphology.diamond(5)
 
     # Determine the mean value of the binary image
     mean_value = np.mean(thresh)
@@ -121,14 +117,21 @@ def detect_stitches(image, false_detected_stitches):
     # Apply Canny edge detection
     edges = cv2.Canny(thresh, low_threshold, high_threshold)
 
+    """
+    plt.subplot(311)
+    plt.imshow(gray, cmap="gray")
+    plt.subplot(312)
+    plt.imshow(thresh, cmap="gray")
+    plt.subplot(313)
+    plt.imshow(edges, cmap="gray")
+    """
+    plt.imshow(out)
+    plt.show()
+
     dims = edges.shape
 
-    plt.subplot(211)
-    plt.imshow(thresh, cmap="gray")
-    plt.subplot(212)
-    plt.imshow(edges, cmap="gray")
     # Perform Hough Transform to detect lines
-    lines = cv2.HoughLinesP(edges, rho=0.5, theta=np.pi / 180, threshold=10, minLineLength=dims[0]*0.1, maxLineGap=20)
+    lines = cv2.HoughLinesP(edges, rho=1, theta=np.pi / 180, threshold=10, minLineLength=dims[0]*0.3, maxLineGap=dims[0]*0.2)
 
     # Identify stitches based on their angle
     stitches = []
@@ -136,10 +139,21 @@ def detect_stitches(image, false_detected_stitches):
         for line in lines:
             x1, y1, x2, y2 = line[0]
             angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
-            if np.abs(angle) > 30:
+            if np.abs(angle) > 60:
                 stitches.append(line)
     else:
         false_detected_stitches += 1
+
+    # if stitches are empty, try to adjust the angle
+    if len(stitches) == 0:
+        if lines is not None:
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
+                if np.abs(angle) > 30:
+                    stitches.append(line)
+        else:
+            false_detected_stitches += 1
 
     return stitches, false_detected_stitches, out
 
@@ -155,24 +169,29 @@ def image_rescale(img_original, img, keypoints):
         return keypoints
 
 
-def draw_detections(incisions, stitches, img_original):
+def draw_detections(incisions, stitches, img_original, image):
     # Draw the detected lines on the original image
     img_with_lines = np.copy(img_original)
-    for line in incisions:
-        # need to compute the ratio between original and incision image
-        x1, y1, x2, y2 = line[0]
-        cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 255, 0), 1)
-
-    for line in stitches:
-        x1, y1, x2, y2 = line[0]
-        cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 0, 255), 1)
+    if incisions is not None:
+        for line in incisions:
+            # need to compute the ratio between original and incision image
+            x1, y1, x2, y2 = line[0]
+            cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 255, 0), 1)
+    if stitches is not None:
+        for line in stitches:
+            x1, y1, x2, y2 = line[0][0]
+            cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 0, 255), 1)
 
     # convert the image to a displayable data type
     img_with_lines_display = cv2.convertScaleAbs(img_with_lines)
 
     # display the results
+    print(image)
+    plt.figure()
     plt.imshow(cv2.cvtColor(img_with_lines_display, cv2.COLOR_BGR2RGB))
+    plt.title("Title: " + image)
     plt.show()
+
 
 
 def average_coordinates(start_points, end_points):
@@ -247,9 +266,58 @@ def keypoints_postprocessing(keypoints, img, keypoints_type, image):
             return keypoints_out
         else:
             return keypoints  # returning the (x1,y1) (x2,y2)
-    elif keypoints_type == "stitch":
-        a = 0
 
+    elif keypoints_type == "stitch" and len(keypoints) > 0:
+        k_means_in = list()
+        for i in range(len(keypoints)):
+            points = keypoints[i][0]
+            k_means_in.append(points)
+        k_means_in = np.array(k_means_in)
+
+        clusters = dict()
+        # identify the classes with corresponding coordinated
+        k_values = range(2, len(keypoints))  # Range of k values to try
+        silhouette_scores = []  # List to store silhouette scores
+
+        # Perform K-means clustering for different values of k
+        for k in k_values:
+            kmeans = KMeans(n_clusters=k, n_init="auto")
+            kmeans.fit(k_means_in)
+            labels = kmeans.labels_
+            score = silhouette_score(k_means_in, labels)
+            silhouette_scores.append(score)
+
+        # Find the optimal number of clusters
+        best_k = k_values[np.argmax(silhouette_scores)]
+
+        # Perform K-means clustering with the best k
+        kmeans = KMeans(n_clusters=best_k)
+        kmeans.fit(k_means_in)
+        labels = kmeans.labels_
+
+        # Get the classes and corresponding values
+        for i, label in enumerate(labels):
+            if label not in clusters:
+                clusters[label] = []
+            clusters[label].append([k_means_in[i]])
+
+        # preparing and averaging the detected classes of incisions
+        final_keypoints = list()
+        for i in range(0, len(clusters.keys())):
+            start_points_inc = list()
+            end_points_inc = list()
+            for j in range(0, len(clusters[i])):
+                current_points = clusters[i][0][0]  # x1,y1,x2,y2
+                start_part = np.array([current_points[0], current_points[1]])  # x1,y1
+                end_part = np.array([current_points[2], current_points[3]])  # x2,y2
+                start_points_inc.append(start_part)
+                end_points_inc.append(end_part)
+            keypoints_average = average_coordinates(np.array([start_part]), np.array([end_part]))
+            final_keypoints.append(keypoints_average)
+            start_part = list()
+            end_part = list()
+
+        return final_keypoints
 
 def angle_between_lines(p1_start, p1_end, p2_start, p2_end):
     '''
@@ -301,7 +369,8 @@ if __name__ == "__main__":
         false_detected_stitches = false_stitches
         incisions_out = image_rescale(img_original, img_incision, incisions)
         stitches_out = image_rescale(img_original, img_stitch, stitches)
-        incisions = keypoints_postprocessing(incisions, img_incision, "incision", image)
-        draw_detections(incisions, stitches_out, img_original)
+        incisions = keypoints_postprocessing(incisions_out, img_incision, "incision", image)
+        stitches = keypoints_postprocessing(stitches_out, img_stitch, "stitch", image)
+        draw_detections(incisions, stitches, img_original, image)
     print("Incision false detected: ", false_incision)
     print("Stitches false detected: ", false_stitches)
