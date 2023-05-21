@@ -171,14 +171,18 @@ def image_rescale(img_original, img, keypoints):
         return keypoints
 
 
-def draw_detections(incisions, stitches, img_original, image):
+def draw_detections(incisions, stitches, img_original, image, intersections, intersections_alphas):
     # Draw the detected lines on the original image
     img_with_lines = np.copy(img_original)
+
+    # draw the incision
     if incisions is not None:
         for line in incisions:
             # need to compute the ratio between original and incision image
             x1, y1, x2, y2 = line[0]
             cv2.line(img_with_lines, (x1, y1), (x2, y2), (0, 255, 0), 1)
+
+    # draw the stitches
     if stitches is not None and len(stitches[0]) > 0:
         for line in stitches:
             x1, y1, x2, y2 = line[0][0]
@@ -188,9 +192,16 @@ def draw_detections(incisions, stitches, img_original, image):
     img_with_lines_display = cv2.convertScaleAbs(img_with_lines)
 
     # display the results
-    print(image)
-    plt.figure()
+    #plt.figure()
     plt.imshow(cv2.cvtColor(img_with_lines_display, cv2.COLOR_BGR2RGB))
+
+    # draw the crossings
+    if len(intersections) > 0:
+        for ((xi, yi), alpha) in zip(intersections, intersections_alphas):
+            plt.plot(xi, yi, 'o')
+            plt.text(xi, yi, '{:2.1f}'.format(alpha), c='green', bbox={'facecolor': 'white', 'alpha': 1.0, 'pad': 1},
+                     size='large')
+
     plt.title("Title: " + image)
     plt.show()
     # skimage.io.imsave(os.path.join("../output_images/one_line_return", image), img_with_lines_display)
@@ -438,8 +449,9 @@ def compute_crossings_and_angles(image, incision, stitches):
                 "crossing_angles": str(intersections_alphas)
             }
         ]
-
-    return information_out
+    intersections_num = str_to_int(intersections, "intersections")
+    intersections_alphas_num = str_to_int(intersections_alphas, "alphas")
+    return information_out, intersections_num, intersections_alphas_num
 
 
 # method for writing the information about the input image
@@ -455,6 +467,24 @@ def write_to_json(information, filename):
 def clear_json_content(filename):
     with open(filename, "w") as outfile:
         outfile.truncate(0)
+
+
+# method for converting strings to numbers
+def str_to_int(keypoints, type):
+    number_keypoints = list()
+
+    if type == "intersections":
+        for points in keypoints:
+            one_line = list()
+            for point in points:
+                one_line.append(float(point))
+            number_keypoints.append(one_line)
+
+    elif type == "alphas":
+        for point in keypoints:
+            number_keypoints.append(float(point))
+    return number_keypoints
+
 
 
 if __name__ == "__main__":
@@ -487,8 +517,8 @@ if __name__ == "__main__":
 
     final_dict = list()
 
-    for i in range(0, 2):  #image in images_list:
-        image = "SA_20221201-083205_incision_crop_0.jpg"
+    for image in image_files:
+        #image = "SA_20221201-083205_incision_crop_0.jpg"
         incisions, false_incision, img_incision, img_original = detect_incision(image, false_detected_incision)
         stitches, false_stitches, img_stitch = detect_stitches(image, false_detected_stitches)
         false_detected_incision = false_incision
@@ -498,9 +528,12 @@ if __name__ == "__main__":
         incisions = keypoints_postprocessing(incisions_out, img_original, "incision", image)
         stitches = keypoints_postprocessing(stitches_out, img_original, "stitch", image)
         stitches = coordinates_control(stitches, img_original, image)
-        draw_detections(incisions, stitches, img_original, image)
-        information = compute_crossings_and_angles(image, incisions, stitches)
+        information, intersections, intersection_alphas = compute_crossings_and_angles(image, incisions, stitches)
+        # add the information for writing to the .json file at the end of the loop
         final_dict.append(information)
+        # visualise the detected coordinates in the input image
+        if verbose_mode:
+            draw_detections(incisions, stitches, img_original, image, intersections, intersection_alphas)
 
     # write the achieved results to json - images that were on the input are included
     write_to_json(final_dict, json_name)
