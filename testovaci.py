@@ -6,6 +6,24 @@ import cv2
 import math
 import numpy as np
 
+def get_average_picture_size(path):
+    images_list = os.listdir(path)
+    num_pics = len(images_list)
+    height_sum = 0
+    width_sum = 0
+
+    for image in images_list:
+        img = skimage.io.imread(path + "/" + image)
+        height, width, channel = img.shape
+
+        height_sum += height
+        width_sum += width
+
+    average_height = height_sum / num_pics
+    average_width = width_sum / num_pics
+
+    return [average_height, average_width]
+
 
 def save_output_data(images_list, path: Path):
     output_name = "res"
@@ -98,3 +116,6 @@ incision_end = [35, 40]
 
 angle = angle_between_lines(stitch_start, stitch_end, incision_start, incision_end)
 print(angle)
+
+average_shape = get_average_picture_size("./images")
+print()

@@ -10,11 +10,11 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 
 # Imports from own modules
-from thresholdOtsu import otsu
-from skelet import skeletonize
-from dilatation import dilatation
-from edgesSegmenation import edges_detection
-from incisionPolyline import polyline_detection
+# from thresholdOtsu import otsu
+# from skelet import skeletonize
+# from dilatation import dilatation
+# from edgesSegmenation import edges_detection
+# from incisionPolyline import polyline_detection
 
 
 def detect_incision(image, false_detected_incision):
