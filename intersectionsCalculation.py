@@ -1,10 +1,4 @@
-import sys
 import math
-import json
-import cv2
-import random
-import numpy as np
-import matplotlib.pyplot as plt
 
 
 def intersectLines(pt1, pt2, ptA, ptB):
