@@ -12,19 +12,10 @@ from sklearn.metrics import silhouette_score
 import json
 from anglesComputation import proces_data
 
-# Imports from own modules
-from thresholdOtsu import otsu
-from skelet import skeletonize
-from dilatation import dilatation
-from edgesSegmenation import edges_detection
-from incisionPolyline import polyline_detection
-from intersectionsCalculation import intersectLines
-
 
 def detect_incision(image, false_detected_incision):
-    incision = skimage.io.imread("project/images/default/" + image, as_gray=True)
 
-    img = cv2.imread("project/images/default/" + image)
+    img = cv2.imread("images/default/" + image)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     # Set the scale factor
@@ -52,6 +43,7 @@ def detect_incision(image, false_detected_incision):
 
     lines = cv2.HoughLinesP(threshold, rho=1, theta=np.pi / 180, threshold=150, minLineLength=(width * 0.75),  # 170 - 46 false
                             maxLineGap=(width * 0.1))
+
     incisions = []
     if lines is not None:
 
@@ -72,8 +64,8 @@ def detect_incision(image, false_detected_incision):
         threshold = cv2.adaptiveThreshold(upscaled_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 17,
                                           2)
         lines = cv2.HoughLinesP(threshold, rho=1, theta=np.pi / 180, threshold=170, minLineLength=(width * 0.75),
-                                # 170 - 46 false
                                 maxLineGap=(width * 0.1))
+
         if lines is not None:
 
             # Identify incisions and stitches based on their angle
@@ -84,16 +76,13 @@ def detect_incision(image, false_detected_incision):
                     incisions.append(line)
         else:
             false_detected_incision += 1
-            #plt.imshow(upscaled_img, cmap="gray")
-            #plt.show()
-            a = 0
 
     return incisions, false_detected_incision, out, img
 
 
 def detect_stitches(image, false_detected_stitches):
 
-    img = cv2.imread("project/images/default/" + image)
+    img = cv2.imread("images/default/" + image)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     kernel_size = 17
@@ -106,29 +95,18 @@ def detect_stitches(image, false_detected_stitches):
     gray = cv2.resize(gray, dim, interpolation=cv2.INTER_CUBIC)
     out = cv2.resize(img, dim, interpolation=cv2.INTER_CUBIC)
 
-    # Apply adaptive thresholding
+    # apply adaptive thresholding
     thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 17, 2)
 
-    kernel_big = skimage.morphology.diamond(5)
-
-    # Determine the mean value of the binary image
+    # determine the mean value of the binary image
     mean_value = np.mean(thresh)
 
-    # Set Canny parameters based on the mean value
+    # set Canny parameters based on the mean value
     low_threshold = int(mean_value * 0.5)
     high_threshold = int(mean_value * 1)
 
-    # Apply Canny edge detection
+    # apply Canny edge detection
     edges = cv2.Canny(thresh, low_threshold, high_threshold)
-
-    """
-    plt.subplot(311)
-    plt.imshow(gray, cmap="gray")
-    plt.subplot(312)
-    plt.imshow(thresh, cmap="gray")
-    plt.subplot(313)
-    plt.imshow(edges, cmap="gray")
-    """
 
     dims = edges.shape
 
@@ -172,7 +150,7 @@ def image_rescale(img_original, img, keypoints):
 
 
 def draw_detections(incisions, stitches, img_original, image, intersections, intersections_alphas):
-    # Draw the detected lines on the original image
+    # draw the detected lines on the original image
     img_with_lines = np.copy(img_original)
 
     # draw the incision
@@ -192,7 +170,6 @@ def draw_detections(incisions, stitches, img_original, image, intersections, int
     img_with_lines_display = cv2.convertScaleAbs(img_with_lines)
 
     # display the results
-    #plt.figure()
     plt.imshow(cv2.cvtColor(img_with_lines_display, cv2.COLOR_BGR2RGB))
 
     # draw the crossings
@@ -223,7 +200,6 @@ def average_coordinates(start_points, end_points):
 
 
 def keypoints_postprocessing(keypoints, img, keypoints_type, image):
-    print(image)
     if keypoints_type == "incision":
         threshold_band = img.shape[0]*0.05
         start_points = list()  # for start points
@@ -232,7 +208,6 @@ def keypoints_postprocessing(keypoints, img, keypoints_type, image):
         # for the final output
         start_points_out = list()
         end_points_out = list()
-        far_keypoints = list()
         if len(keypoints) > 1:
             for line_part in [0, 2]:  # starts then ends
                 for i in range(0, len(keypoints)):  # getting start/end points (x,y)
@@ -281,56 +256,9 @@ def keypoints_postprocessing(keypoints, img, keypoints_type, image):
         else:
             return keypoints  # returning the (x1,y1) (x2,y2)
 
+    # k - means
     elif keypoints_type == "stitch" and len(keypoints) > 2:
-        k_means_in = list()
-        for i in range(len(keypoints)):
-            points = keypoints[i][0]
-            k_means_in.append(points)
-        k_means_in = np.array(k_means_in)
-
-        clusters = dict()
-        # identify the classes with corresponding coordinated
-        k_values = range(2, len(keypoints))  # Range of k values to try
-        silhouette_scores = []  # List to store silhouette scores
-
-        # Perform K-means clustering for different values of k
-        for k in k_values:
-            kmeans = KMeans(n_clusters=k, n_init="auto")
-            kmeans.fit(k_means_in)
-            labels = kmeans.labels_
-            score = silhouette_score(k_means_in, labels)
-            silhouette_scores.append(score)
-
-        # Find the optimal number of clusters
-        best_k = k_values[np.argmax(silhouette_scores)]
-
-        # Perform K-means clustering with the best k
-        kmeans = KMeans(n_clusters=best_k)
-        kmeans.fit(k_means_in)
-        labels = kmeans.labels_
-
-        # Get the classes and corresponding values
-        for i, label in enumerate(labels):
-            if label not in clusters:
-                clusters[label] = []
-            clusters[label].append([k_means_in[i]])
-
-        # preparing and averaging the detected classes of incisions
-        final_keypoints = list()
-        for i in range(0, len(clusters.keys())):
-            start_points_inc = list()
-            end_points_inc = list()
-            for j in range(0, len(clusters[i])):
-                current_points = clusters[i][0][0]  # x1,y1,x2,y2
-                start_part = np.array([current_points[0], current_points[1]])  # x1,y1
-                end_part = np.array([current_points[2], current_points[3]])  # x2,y2
-                start_points_inc.append(start_part)
-                end_points_inc.append(end_part)
-            keypoints_average = average_coordinates(np.array([start_part]), np.array([end_part]))
-            final_keypoints.append(keypoints_average)
-            start_part = list()
-            end_part = list()
-
+        final_keypoints = k_means(keypoints)
         return final_keypoints
 
     # only two or one line detected
@@ -338,6 +266,60 @@ def keypoints_postprocessing(keypoints, img, keypoints_type, image):
         return [keypoints]
 
 
+def k_means(keypoints):
+    k_means_in = list()
+    for i in range(len(keypoints)):
+        points = keypoints[i][0]
+        k_means_in.append(points)
+    k_means_in = np.array(k_means_in)
+    clusters = dict()
+
+    # identify the classes with corresponding coordinated
+    k_values = range(2, len(keypoints))  # Range of k values to try
+    silhouette_scores = []  # List to store silhouette scores
+
+    # perform K-means clustering for different values of k
+    for k in k_values:
+        kmeans = KMeans(n_clusters=k, n_init="auto")
+        kmeans.fit(k_means_in)
+        labels = kmeans.labels_
+        score = silhouette_score(k_means_in, labels)
+        silhouette_scores.append(score)
+
+    # find the optimal number of clusters
+    best_k = k_values[np.argmax(silhouette_scores)]
+
+    # perform K-means clustering with the best k
+    kmeans = KMeans(n_clusters=best_k)
+    kmeans.fit(k_means_in)
+    labels = kmeans.labels_
+
+    # get the classes and corresponding values
+    for i, label in enumerate(labels):
+        if label not in clusters:
+            clusters[label] = []
+        clusters[label].append([k_means_in[i]])
+
+    # preparing and averaging the detected classes of incisions
+    final_keypoints = list()
+    for i in range(0, len(clusters.keys())):
+        start_points_inc = list()
+        end_points_inc = list()
+        for j in range(0, len(clusters[i])):
+            current_points = clusters[i][0][0]  # x1,y1,x2,y2
+            start_part = np.array([current_points[0], current_points[1]])  # x1,y1
+            end_part = np.array([current_points[2], current_points[3]])  # x2,y2
+            start_points_inc.append(start_part)
+            end_points_inc.append(end_part)
+        keypoints_average = average_coordinates(np.array([start_part]), np.array([end_part]))
+        final_keypoints.append(keypoints_average)
+        start_part = list()
+        end_part = list()
+
+    return final_keypoints
+
+
+# method for controlling if there are more lines for one incision which are close
 def coordinates_control(keypoints, img, image):
     threshold = img.shape[1]*0.05
     keypoints_final = list()
@@ -364,10 +346,12 @@ def coordinates_control(keypoints, img, image):
     return keypoints_final
 
 
+# method for calculating the Euclidian distance
 def calculate_distance(x1, y1, x2, y2):
     return np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
 
+# support method for detecting if line is already in final lines
 def line_in_lines(line, keypoints):
     for points in keypoints:
         if len(points) > 1:
@@ -381,38 +365,7 @@ def line_in_lines(line, keypoints):
     return False
 
 
-def angle_between_lines(p1_start, p1_end, p2_start, p2_end):
-    '''
-    Could be used for counting angles between incision and stitches
-    :param p1_start:
-    :param p1_end:
-    :param p2_start:
-    :param p2_end:
-    :return:
-    '''
-    # Compute the slopes of the lines
-    dx1 = p1_end[0] - p1_start[0]
-    dy1 = p1_end[1] - p1_start[1]
-    dx2 = p2_end[0] - p2_start[0]
-    dy2 = p2_end[1] - p2_start[1]
-
-    # Calculate the angles using arctan2
-    theta1 = np.arctan2(dy1, dx1)
-    theta2 = np.arctan2(dy2, dx2)
-
-    # Compute the angle between the lines
-    angle = abs(theta2 - theta1)
-
-    # Normalize the angle to the range [0, pi/2]
-    if angle > math.pi / 2:
-        angle = math.pi - angle
-
-    # Convert angle to degrees
-    angle_degrees = math.degrees(angle)
-
-    return angle_degrees
-
-
+# method for computing the crossing points and angles and also creating the final dict for json
 def compute_crossings_and_angles(image, incision, stitches):
     # image = name of the image
     # incisions = coordinates of the detected incision
@@ -442,13 +395,14 @@ def compute_crossings_and_angles(image, incision, stitches):
 
     # create the dictionary for json
     information_out = [
-            {
+        {
                 "filename": image,
-                "incision_polyline": str(incision[0][0].tolist()),
-                "crossing_positions": str(intersections),
-                "crossing_angles": str(intersections_alphas)
-            }
+                "incision_polyline": incision[0][0].tolist(),
+                "crossing_positions": str_to_int(intersections, "intersections"),
+                "crossing_angles": str_to_int(intersections_alphas, "alphas")
+            },
         ]
+
     intersections_num = str_to_int(intersections, "intersections")
     intersections_alphas_num = str_to_int(intersections_alphas, "alphas")
     return information_out, intersections_num, intersections_alphas_num
@@ -458,9 +412,8 @@ def compute_crossings_and_angles(image, incision, stitches):
 def write_to_json(information, filename):
     # information = dictionary type containing incisions, stitches and image filename
     # file = the output json
-    with open(filename, "a") as fw:
-        json.dump(information, fw)
-        fw.write("\n")  # adding the new line
+    with open(filename, "w", encoding='utf-8') as fw:
+        json.dump(information, fw, ensure_ascii=False, indent=4)
 
 
 # method for clearing the json content before the main is called
@@ -486,22 +439,18 @@ def str_to_int(keypoints, type):
     return number_keypoints
 
 
-
+# main method
 if __name__ == "__main__":
-    working = "SA_20220707-193326_incision_crop_0.jpg"  # the working image
-    test = "SA_20230223-161818_incision_crop_0.jpg"  #  SA_20211012-164802_incision_crop_0.jpg
-    test2 = "SA_20211012-164802_incision_crop_0.jpg"
-    test3 = "SA_20221014-114727_incision_crop_0.jpg"
+
+    """
     # get all the images
-    curr_path = "./SP/src/project/images/default"
+    curr_path = "./SP/src/images/default"
     path = os.path.abspath(os.path.join("../../", curr_path))
     print(path)
     images_list = os.listdir(path)
+    """
     false_detected_incision = 0
     false_detected_stitches = 0
-
-    json_name = "output.json"
-    clear_json_content(json_name)
 
     # getting the input parameters as an input
     args = sys.argv[1:]  # command line arguments
@@ -513,12 +462,12 @@ if __name__ == "__main__":
     if verbose_mode:
         image_files = args[2:]  # image file names for the detection
     else:
-        images_files = args[1:]
+        image_files = args[1:]
 
+    clear_json_content(output_file)
     final_dict = list()
 
     for image in image_files:
-        #image = "SA_20221201-083205_incision_crop_0.jpg"
         incisions, false_incision, img_incision, img_original = detect_incision(image, false_detected_incision)
         stitches, false_stitches, img_stitch = detect_stitches(image, false_detected_stitches)
         false_detected_incision = false_incision
@@ -529,13 +478,15 @@ if __name__ == "__main__":
         stitches = keypoints_postprocessing(stitches_out, img_original, "stitch", image)
         stitches = coordinates_control(stitches, img_original, image)
         information, intersections, intersection_alphas = compute_crossings_and_angles(image, incisions, stitches)
+
         # add the information for writing to the .json file at the end of the loop
-        final_dict.append(information)
+        final_dict.append(information[0])
+
         # visualise the detected coordinates in the input image
         if verbose_mode:
             draw_detections(incisions, stitches, img_original, image, intersections, intersection_alphas)
 
     # write the achieved results to json - images that were on the input are included
-    write_to_json(final_dict, json_name)
-    print("Incision false detected: ", false_incision)
-    print("Stitches false detected: ", false_stitches)
+    write_to_json(final_dict, output_file)
+    # print("Incision false detected: ", false_incision)
+    # print("Stitches false detected: ", false_stitches)
