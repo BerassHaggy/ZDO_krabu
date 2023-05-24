@@ -12,13 +12,15 @@ As the input data we were using annotated medical pictures. The pictures were
 annotated in [CVAT](https://www.cvat.ai/). We had to deal with the poor quality of the pictures (as you can see below).
 The annotations were saved in .json file.
 
-![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/graphics/SA_20211012-164802_incision_crop_0.jpg)
+![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/graphics/SA_20211107-191434_incision_crop_0.jpg)
 
-![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/graphics/SA_20211012-165505_incision_crop_0.jpg)
-
-![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/graphics/SA_20211012-181437_incision_crop_0.jpg)
+![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/graphics/SA_20221011-172555_incision_crop_0.jpg)
 
 ![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/graphics/SA_20220503-113941_incision_crop_0.jpg)
+
+![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/graphics/SA_20230222-081220_incision_crop_0.jpg)
+
+![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/graphics/SA_20230223-124020_incision_crop_0.jpg)
 
 ## Output data
 ![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/graphics/fin1.png)
