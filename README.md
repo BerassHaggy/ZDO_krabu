@@ -21,7 +21,7 @@ The annotations were saved in .json file.
 ![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/graphics/SA_20220503-113941_incision_crop_0.jpg)
 
 ## Output data
-![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/graphicsfin1.png)
+![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/graphics/fin1.png)
 
 ![alt text](https://github.com/BerassHaggy/ZDO_krabu/blob/main/graphics/fin2.png)
 
