@@ -382,13 +382,17 @@ def compute_crossings_and_angles(image, incision, stitches):
 
     incisions_in = [incisions_in]
 
-    for stitch in stitches:
-        coordinates = stitch[0][0]
-        line = list()
-        for i in [0, 2]:
-            points = [coordinates[i], coordinates[i+1]]
-            line.append(points)
-        stitches_in.append(line)
+    # check if any stitches were detected
+    if len(stitches[0]) > 0:
+        for stitch in stitches:
+            coordinates = stitch[0][0]
+            line = list()
+            for i in [0, 2]:
+                points = [coordinates[i], coordinates[i+1]]
+                line.append(points)
+            stitches_in.append(line)
+    else:
+        stitches_in = list()  # only empty list - no stitches were detected
 
     # compute the crossings, angles
     intersections, intersections_alphas = proces_data(incisions_in, stitches_in)
