@@ -13,18 +13,19 @@ import json
 from anglesComputation import proces_data
 
 
+# method for detecting stitches based on specific operations
 def detect_incision(image, false_detected_incision):
 
     img = cv2.imread("images/default/" + image)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    # Set the scale factor
+    # set the scale factor
     scale_percent = 200  # 200% upscaling
 
     # modify image only if the width is smaller than given threshold
     threshold_width = 200
     if gray.shape[1] < threshold_width:
-        # Calculate the new dimensions
+        # calculate the new dimensions
         width = int(gray.shape[1] * scale_percent / 100)
         height = int(gray.shape[0] * scale_percent / 100)
         dim = (width, height)
@@ -34,7 +35,7 @@ def detect_incision(image, false_detected_incision):
         upscaled_img = gray
         out = img
 
-    # Thresholding (adaptive)
+    # thresholding (adaptive)
     threshold = cv2.adaptiveThreshold(upscaled_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 17, 2)
 
     dimensions = img.shape
@@ -47,7 +48,7 @@ def detect_incision(image, false_detected_incision):
     incisions = []
     if lines is not None:
 
-        # Identify incisions and stitches based on their angle
+        # identify incisions and stitches based on their angle
         for line in lines:
             x1, y1, x2, y2 = line[0]
             angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
@@ -55,7 +56,7 @@ def detect_incision(image, false_detected_incision):
                 incisions.append(line)
     else:
         scale_percent = 200
-        # Calculate the new dimensions
+        # calculate the new dimensions
         width = int(upscaled_img.shape[1] * scale_percent / 100)
         height = int(upscaled_img.shape[0] * scale_percent / 100)
         dim = (width, height)
@@ -68,7 +69,7 @@ def detect_incision(image, false_detected_incision):
 
         if lines is not None:
 
-            # Identify incisions and stitches based on their angle
+            # identify incisions and stitches based on their angle
             for line in lines:
                 x1, y1, x2, y2 = line[0]
                 angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
@@ -80,6 +81,7 @@ def detect_incision(image, false_detected_incision):
     return incisions, false_detected_incision, out, img
 
 
+# method for detecting stitches based on specific operations
 def detect_stitches(image, false_detected_stitches):
 
     img = cv2.imread("images/default/" + image)
@@ -110,10 +112,10 @@ def detect_stitches(image, false_detected_stitches):
 
     dims = edges.shape
 
-    # Perform Hough Transform to detect lines
+    # perform Hough Transform to detect lines
     lines = cv2.HoughLinesP(edges, rho=1, theta=np.pi / 180, threshold=10, minLineLength=dims[0]*0.3, maxLineGap=dims[0]*0.2)
 
-    # Identify stitches based on their angle
+    # identify stitches based on their angle
     stitches = []
     if lines is not None:
         for line in lines:
@@ -138,6 +140,7 @@ def detect_stitches(image, false_detected_stitches):
     return stitches, false_detected_stitches, out
 
 
+# updating detected coordinates (in a new coordinate system) if image sizes do not correspond
 def image_rescale(img_original, img, keypoints):
     # need to compute the ratio between original and incision image
     if img_original.shape == img.shape:
@@ -149,6 +152,7 @@ def image_rescale(img_original, img, keypoints):
         return keypoints
 
 
+# method for plotting the detected incisions, stitches, crossings and angles
 def draw_detections(incisions, stitches, img_original, image, intersections, intersections_alphas):
     # draw the detected lines on the original image
     img_with_lines = np.copy(img_original)
@@ -184,6 +188,7 @@ def draw_detections(incisions, stitches, img_original, image, intersections, int
     # skimage.io.imsave(os.path.join("../output_images/one_line_return", image), img_with_lines_display)
 
 
+# method for averaging all the lines in one class - returning only one line
 def average_coordinates(start_points, end_points):
     keypoints_out = list()
     # controlling if any incisions and stitches were detected
@@ -266,6 +271,7 @@ def keypoints_postprocessing(keypoints, img, keypoints_type, image):
         return [keypoints]
 
 
+# method representing k-means algorithm
 def k_means(keypoints):
     k_means_in = list()
     for i in range(len(keypoints)):
@@ -375,10 +381,11 @@ def compute_crossings_and_angles(image, incision, stitches):
     stitches_in = list()  # as an input for the dedicated method
     incisions_in = list()
 
-    for i in [0, 2]:  # start and end
-        coordinates = incision[0][0]
-        points = [coordinates[i], coordinates[i+1]]
-        incisions_in.append(points)
+    if len(incision) > 0:
+        for i in [0, 2]:  # start and end
+            coordinates = incision[0][0]
+            points = [coordinates[i], coordinates[i+1]]
+            incisions_in.append(points)
 
     incisions_in = [incisions_in]
 
@@ -391,8 +398,6 @@ def compute_crossings_and_angles(image, incision, stitches):
                 points = [coordinates[i], coordinates[i+1]]
                 line.append(points)
             stitches_in.append(line)
-    else:
-        stitches_in = list()  # only empty list - no stitches were detected
 
     # compute the crossings, angles
     intersections, intersections_alphas = proces_data(incisions_in, stitches_in)
