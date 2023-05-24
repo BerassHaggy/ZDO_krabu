@@ -9,12 +9,12 @@ stitching based mainly on the angle between the incision and the stitch.
 
 ## Run
 ```commandline
-cd GithubProjects/ZDO_Team99/src
+cd GithubProjects/ZDO_krabu/src
 python run.py output.json incision001.jpg incision005.png incision010.JPEG
 ```
 or (if verbose mode is wanted)
 ```commandline
-cd GithubProjects/ZDO_Team99/src
+cd GithubProjects/ZDO_krabu/src
 python run.py output.json -v incision001.jpg incision005.png incision010.JPEG
 ```
 
